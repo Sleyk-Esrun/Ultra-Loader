@@ -70,7 +70,7 @@ Plug in your hardware and go. Ultra Loader detects what you have and wires it st
 - **Ultra Omni-Track.** The lightgun system: per-player calibration, X/Y offsets, offscreen reload, on-screen borders, and automatic per-title profiles.
 - **Ultra Omni-Wheel.** The racing system: force-feedback wheels with steering deadzone, sensitivity and curve, plus automatic per-title profiles.
 - **Ultra Omni-Steer.** The flightstick system: HOTAS controls with force feedback, throttle, and full axis inversion.
-- **Ultra Omni-Bridge.** The keyboard and mouse bridge: play boards that expect a gamepad using your keyboard and mouse.
+- **Ultra Omni-Bridge.** The keyboard and mouse bridge: play games that only take keyboard and mouse input using your gamepad.
 
 Card readers (card-in progression) and a credit injector (hotkey or auto-insert coins) are wired up too. One page configures all of it: set it once and every supported game picks it up.
 
