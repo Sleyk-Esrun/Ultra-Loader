@@ -66,16 +66,19 @@ Four steps. No per-game setup, no config spelunking, no launcher babysitting.
 
 Plug in your hardware and go. Ultra Loader detects what you have and wires it straight to the game, with no per-game remapping and no external tools:
 
-- **Universal Gamepad.** Any controller works across every board, with per-stick deadzone, sensitivity, and curve tuning.
-- **Lightgun.** Popular lightguns with per-player calibration, X/Y offsets, offscreen reload, on-screen borders, and automatic per-title profiles.
-- **Force-Feedback Wheels.** Racing wheels with real FFB, steering deadzone, sensitivity and curve, plus automatic per-title profiles.
-- **Flight Sticks (HOTAS).** Flight controls with force feedback, throttle, and full axis inversion.
-- **Card Readers.** Card-in support on the boards that use it, so card-based progression just works.
-- **Credit Injector.** Drop coins with a hotkey or auto-insert, per player, with on-screen feedback.
+- **Ultra Omni-Play.** The gamepad system: any controller works across every board, with per-stick deadzone, sensitivity, and curve tuning.
+- **Ultra Omni-Track.** The lightgun system: per-player calibration, X/Y offsets, offscreen reload, on-screen borders, and automatic per-title profiles.
+- **Ultra Omni-Wheel.** The racing system: force-feedback wheels with steering deadzone, sensitivity and curve, plus automatic per-title profiles.
+- **Ultra Omni-Steer.** The flightstick system: HOTAS controls with force feedback, throttle, and full axis inversion.
+- **Ultra Omni-Bridge.** The keyboard and mouse bridge: play boards that expect a gamepad using your keyboard and mouse.
 
-One screen configures all of it. Set it once and every supported game picks it up.
+Card readers (card-in progression) and a credit injector (hotkey or auto-insert coins) are wired up too. One page configures all of it: set it once and every supported game picks it up.
 
-<!-- OMNI GALLERY: control-screen shots go here (Configure Controls, Lightgun, Wheel, Flight, Gamepad) -->
+<div align="center">
+<a href="media/ui-omni.png"><img src="media/ui-omni.png" alt="Ultra Loader controller configuration with the five Omni systems" width="560"></a>
+<br>
+<i>One controller page, five Omni systems. (Click to view full size.)</i>
+</div>
 
 ---
 
