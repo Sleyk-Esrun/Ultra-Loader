@@ -2,8 +2,6 @@
 
 <img src="media/ultra_logo.png" alt="Ultra Loader" width="580">
 
-# ULTRA LOADER
-
 ### The native arcade execution engine. Free forever. Built for the community.
 
 **U**nified **L**egacy **T**ranslation **R**untime **A**rchitecture
