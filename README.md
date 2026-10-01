@@ -62,6 +62,23 @@ Four steps. No per-game setup, no config spelunking, no launcher babysitting.
 
 ---
 
+## Omni-Services
+
+Plug in your hardware and go. Ultra Loader detects what you have and wires it straight to the game, with no per-game remapping and no external tools:
+
+- **Universal Gamepad.** Any controller works across every board, with per-stick deadzone, sensitivity, and curve tuning.
+- **Lightgun.** Popular lightguns with per-player calibration, X/Y offsets, offscreen reload, on-screen borders, and automatic per-title profiles.
+- **Force-Feedback Wheels.** Racing wheels with real FFB, steering deadzone, sensitivity and curve, plus automatic per-title profiles.
+- **Flight Sticks (HOTAS).** Flight controls with force feedback, throttle, and full axis inversion.
+- **Card Readers.** Card-in support on the boards that use it, so card-based progression just works.
+- **Credit Injector.** Drop coins with a hotkey or auto-insert, per player, with on-screen feedback.
+
+One screen configures all of it. Set it once and every supported game picks it up.
+
+<!-- OMNI GALLERY: control-screen shots go here (Configure Controls, Lightgun, Wheel, Flight, Gamepad) -->
+
+---
+
 ## Built for Speed
 
 Ultra Loader is written in **native C** and ships as a single lightweight executable with its UI, fonts, audio, splash and boot animation **embedded**. There's no managed runtime to spin up, no framework to load, and no per-game project files to parse before anything happens. The window and your entire game library are on screen the instant you double-click it.
