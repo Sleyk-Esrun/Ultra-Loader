@@ -53,10 +53,10 @@ So please, **be patient** with what's still in bring-up, and **support the peopl
 
 ## The ULTRA Way
 
-Four steps. No per-game setup, no config spelunking, no launcher babysitting.
+Four simple steps. No per-game setup, no config spelunking, no launcher babysitting.
 
-1. **Install.** Download the loader, extract the folder, run `ultra-loader.exe`.
-2. **Install Modules.** Choose a game module you wish to play and install it directly into the loader. The loader plays a sound to let you know it installed.
+1. **Install.** Download the loader, extract the folder from the zip, then run `ultra-loader.exe`.
+2. **Install Modules.** Download an individual firmware module for a supported game, and install it directly into the loader. You may download an individual firmware module for the game you wish to play, or you can download the entire set of firmware modules (many still work in progress) and install the entire collection. You may also install all firmware modules in bulk. The loader plays a sound to let you know that the modules were installed, and shows a list of what was installed/refused if any.
 3. **Select.** Browse your legal game dumps and pick the game's executable (`.exe`).
 4. **Launch.** Press *Save and Launch*. Ultra Loader detects the board, loads the right module, and wires up omni-services (lightgun support, force feedback, wheels, flight sticks, card readers, credits) automatically. No further setup required.
 
@@ -77,16 +77,16 @@ Card readers (card-in progression) and a credit injector (hotkey or auto-insert 
 <div align="center">
 <a href="media/ui-omni.png"><img src="media/ui-omni.png" alt="Ultra Loader controller configuration with the five Omni systems" width="820"></a>
 <br>
-<i>One controller page, five Omni systems. (Click to view full size.)</i>
+<i>One controller page, Five Omni systems. (Click to view full size.)</i>
 </div>
 
 ---
 
 ## Built for Speed
 
-Ultra Loader is written in **native C** and ships as a single lightweight executable with its UI, fonts, audio, splash and boot animation **embedded**. There's no managed runtime to spin up, no framework to load, and no per-game project files to parse before anything happens. The window and your entire game library are on screen the instant you double-click it.
+Ultra Loader is written in **native C** and ships as a single lightweight executable with its UI, fonts, audio, splash and boot animation **embedded**. There's no managed runtime to spin up, no framework to load, and no per-game project files to parse before anything happens. The window and your entire game library are on screen the instant you double-click it. Once you load a supported title with Ultra Loader, you will instantly feel the difference.
 
-That's a different class of responsiveness than managed, .NET-based launchers like **TeknoParrot**:
+The loader was built to be responsive and fast. That's a completely different class of responsiveness than a managed .NET-based launcher like **TeknoParrot**:
 
 | | **Ultra Loader** | **TeknoParrot** |
 |---|---|---|
@@ -96,13 +96,13 @@ That's a different class of responsiveness than managed, .NET-based launchers li
 | Library | One unified grid that remembers **every** game you've ever launched | Per-game profiles you add and manage |
 | Footprint | Lean; assets embedded in the exe | Framework and launcher dependencies |
 
-The result: you spend time **playing**, not waiting on a launcher. Pick a game, press **Save & Launch**, and you're in.
+The result: you spend time actually **playing**, not waiting on a launcher. Once your firmware module is installed, pick a game, press **Save & Launch**, and you're off to the races.
 
 ---
 
 ## Download & Run
 
-1. Grab the latest **[Windows release](https://github.com/Sleyk-Esrun/Ultra-Loader/releases/latest)**.
+1. Grab the latest release **[Windows release](https://github.com/Sleyk-Esrun/Ultra-Loader/releases/latest)** or directly, from **ultraloader.org**.
 2. Extract the **`Ultra Loader`** folder anywhere (your Desktop is fine).
 3. Run **`ultra-loader.exe`**.
 
@@ -149,11 +149,11 @@ Pick the look that fits your collection. Ultra Loader ships with two built-in lo
 </table>
 </div>
 
-**Clear Style** is the clean, transparent logo look that has long been the community standard: crisp, minimal, and it sits naturally on any background.
+**Clear Style** is the clean, transparent logo look that has long been the community standard: clean and minimal, and it shows naturally against any background. Clear logos can also be found almost anywhere. Many users prefer this style.
 
-**Silver Ring** is the metallic, ringed-badge style that TeknoParrot made popular. Over the years it has become almost synonymous with modern arcade game art in the community, so it felt only fair to include it.
+**Silver Ring** is the metallic, silver ringed-badge style that TeknoParrot made popular. Over the years it has become almost synonymous with modern arcade game art in the community, so it felt fair to include it.
 
-Prefer one or the other, and install your own art packs from inside the loader anytime.
+You can choose between one or the other, and install your own art packs from inside the loader anytime. You can also switch between game logos by erasing and reinstalling your logo style of choice.
 
 ---
 
@@ -200,10 +200,10 @@ The loader itself is proprietary and free (see the [EULA](https://ultraloader.or
 
 These are promises, in writing, where anyone can find them:
 
-- **Always free.** No subscription, no paywall, no tier system. Ever.
+- **Always free.** No subscription, no paywall, no tier system. Ever. This is the way. The only way.
 - **No game access is ever paywalled.** Every user gets the same software with the same capabilities.
-- **No telemetry.** Nothing leaves your machine unless you choose to send a bug report.
-- **All R&D goes back to the community** at no cost.
+- **No telemetry or tracking.** Nothing leaves your machine unless you choose to send a bug report.
+- **All R&D goes back to the community** We make things better by sharing out of love for the game.
 
 ---
 
