@@ -109,6 +109,8 @@ Everything the loader needs is embedded. On first run it writes its own `ultra.i
 
 A single, art-driven grid of your games, each tile its own logo. The library is a **persistent, cross-folder history**: every game you launch is remembered and stays on the wall, no matter which folder it lives in. No re-adding, no per-game setup.
 
+**Launch straight from the wall.** Don't feel like browsing File Explorer for the same game over and over? Once your library is populated, you never have to. Just find your logo, hit **Launch**, and the game boots automatically. One click instead of digging through folder after folder, saving you time navigating.
+
 Curate it your way: tick the checkbox on any tile and hit **Delete Selected** to remove entries you don't want shown. (It only hides them from the grid; your game files are never touched.)
 
 ---
