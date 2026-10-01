@@ -75,7 +75,7 @@ Plug in your hardware and go. Ultra Loader detects what you have and wires it st
 Card readers (card-in progression) and a credit injector (hotkey or auto-insert coins) are wired up too. One page configures all of it: set it once and every supported game picks it up.
 
 <div align="center">
-<a href="media/ui-omni.png"><img src="media/ui-omni.png" alt="Ultra Loader controller configuration with the five Omni systems" width="560"></a>
+<a href="media/ui-omni.png"><img src="media/ui-omni.png" alt="Ultra Loader controller configuration with the five Omni systems" width="720"></a>
 <br>
 <i>One controller page, five Omni systems. (Click to view full size.)</i>
 </div>
