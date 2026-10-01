@@ -26,9 +26,9 @@ Arcade games are some of the most technically impressive and culturally signific
 > It contains **no** copyrighted game code, **no** extracted assets, and **no** third-party firmware. You bring your own game files. We built the engine. You decide how to use it.
 
 <div align="center">
-<a href="media/ui-dual.png"><img src="media/ui-dual.png" alt="Ultra Loader settings and game library" width="100%"></a>
+<a href="media/ui-main.png"><img src="media/ui-main.png" alt="Ultra Loader main window" width="680"></a>
 <br>
-<i>Settings and your full game library, side by side. (Click to view full size.)</i>
+<i>The Ultra Loader main window: every option on one screen. (Click to view full size.)</i>
 </div>
 
 ---
@@ -89,12 +89,12 @@ Everything the loader needs is embedded. On first run it writes its own `ultra.i
 
 ---
 
-## One Screen, Everything
+## Settings and Library, Side by Side
 
 <div align="center">
-<a href="media/ui-main.png"><img src="media/ui-main.png" alt="Ultra Loader settings" width="600"></a>
+<a href="media/ui-dual.png"><img src="media/ui-dual.png" alt="Ultra Loader settings and game library side by side" width="100%"></a>
 <br>
-<i>Every setting in one place: display, upscaling, controllers, firmware, audio. Pick a game, hit <b>Save &amp; Launch</b>, and the loader detects the board and wires up every service automatically.<br>(Click to view full size.)</i>
+<i>Open your game library right next to the settings. Every option in one place: display, upscaling, controllers, firmware, audio. Pick a game, hit <b>Save &amp; Launch</b>, and the loader detects the board and wires up every service automatically.<br>(Click to view full size.)</i>
 </div>
 
 ---
