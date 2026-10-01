@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="media/ultra_logo.png" alt="Ultra Loader" width="580">
+<img src="media/ultra_logo.png" alt="Ultra Loader" width="760">
 
 ### The native arcade execution engine. Free forever. Built for the community.
 
@@ -25,6 +25,12 @@ Arcade games are some of the most technically impressive and culturally signific
 
 > It contains **no** copyrighted game code, **no** extracted assets, and **no** third-party firmware. You bring your own game files. We built the engine — you decide how to use it.
 
+<div align="center">
+<a href="media/ui-dual.png"><img src="media/ui-dual.png" alt="Ultra Loader settings and game library" width="100%"></a>
+<br>
+<i>Settings and your full game library, side by side. (Click to view full size.)</i>
+</div>
+
 ---
 
 ## The ULTRA Way
@@ -34,6 +40,24 @@ Three steps. No per-game setup, no config spelunking, no launcher babysitting.
 1. **Install** — Download the loader, extract the folder, run `ultra-loader.exe`.
 2. **Select** — Browse your legal game dumps and pick the game's executable (`.exe`).
 3. **Launch** — Press *Save and Launch*. Ultra Loader detects the board, loads the right module, and wires up omni-services — lightgun support, force feedback, wheels, flight sticks, card readers, credits — automatically. No further setup required.
+
+---
+
+## Built for Speed
+
+Ultra Loader is written in **native C** and ships as a single lightweight executable with its UI, fonts, audio, splash and boot animation **embedded**. There's no managed runtime to spin up, no framework to load, and no per-game project files to parse before anything happens — the window and your entire game library are on screen the instant you double-click it.
+
+That's a different class of responsiveness than managed, .NET-based launchers like **TeknoParrot**:
+
+| | **Ultra Loader** | **TeknoParrot** |
+|---|---|---|
+| Core | Native C, single small `.exe` | Managed .NET / WPF launcher |
+| Cold start | Near-instant — library shows immediately | Waits on the .NET runtime + UI framework to load |
+| Launch path | Straight into a native injector/host | Through a managed launcher layer |
+| Library | One unified grid that remembers **every** game you've ever launched | Per-game profiles you add and manage |
+| Footprint | Lean; assets embedded in the exe | Framework + launcher dependencies |
+
+The result: you spend time **playing**, not waiting on a launcher. Pick a game, press **Save & Launch**, and you're in.
 
 ---
 
@@ -68,6 +92,20 @@ Everything the loader needs is embedded. On first run it writes its own `ultra.i
 <br>
 <i>Every setting in one place — display, upscaling, controllers, firmware, audio. Pick a game, hit <b>Save &amp; Launch</b>, and the loader detects the board and wires up every service automatically.<br>(Click to view full size.)</i>
 </div>
+
+---
+
+## Game Library
+
+<div align="center">
+<a href="media/ui-library.png"><img src="media/ui-library.png" alt="Ultra Loader game library grid" width="620"></a>
+<br>
+<i>Your whole collection as a wall of art. (Click to view full size.)</i>
+</div>
+
+A single, art-driven grid of your games — each tile its own logo. The library is a **persistent, cross-folder history**: every game you launch is remembered and stays on the wall, no matter which folder it lives in. No re-adding, no per-game setup.
+
+Curate it your way — tick the checkbox on any tile and hit **Delete Selected** to remove entries you don't want shown. (It only hides them from the grid; your game files are never touched.)
 
 ---
 
