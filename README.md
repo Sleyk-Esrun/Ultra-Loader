@@ -143,7 +143,7 @@ Pick the look that fits your collection. Ultra Loader ships with two built-in lo
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="media/style-clear.png" width="420"><br><b>Clear Style</b></td>
+<td align="center"><img src="media/style-clear.png" width="540"><br><b>Clear Style</b></td>
 <td align="center"><img src="media/style-silver.png" width="420"><br><b>Silver Ring</b></td>
 </tr>
 </table>
@@ -192,7 +192,7 @@ Each board lives in `modules/<board>/` as original source: hook code, board I/O,
 | **Per-game firmware (`.ufw`)** | Installed from inside the loader |
 | **Game-art packs** | Installed from inside the loader |
 
-The loader itself is proprietary and free (see the [EULA](https://ultraloader.org/eula)). The **board modules are open**, made to be read, improved, and extended by the community.
+The loader itself is proprietary and free (see the [EULA](https://ultraloader.org/eula)). The **board modules are open**, made to be read, improved, and extended by the community. The per-game firmware modules are found exclusively on [ultraloader.org](https://ultraloader.org).
 
 ---
 
