@@ -1,0 +1,10 @@
+/* hook_res.rc -- embeds this board's own hook DLL into
+ * ultra_incredible_technologies.dll as RCDATA, so exactly one file ships/gets
+ * signed for this board. Built by build_module.sh AFTER
+ * src/hook/build_it_hook.sh produces the hook binary. Extracted back out at
+ * runtime by extract_hook_to_temp() in incredible_technologies_main.c. See
+ * docs/PROJECT_LICENSING_AND_SIGNING.md.
+ *
+ * Only HOOK32 exists for this board (no 64-bit hook build).
+ */
+HOOK32 RCDATA "hook/ultra_incredible_technologies_hook32.dll"

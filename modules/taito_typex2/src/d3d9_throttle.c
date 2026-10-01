@@ -1,0 +1,760 @@
+/* SPDX-License-Identifier: MIT
+ * =============================================================================
+ *  d3d9_throttle.c -- frame limiter + present post-process for native Taito
+ *                     Type X2 games (Direct3D 9). Sibling of d3d8_throttle.c.
+ * =============================================================================
+ *
+ *  Type X2 titles (Haunted Museum, Wacky Race, ...) render with D3D9. Like the
+ *  D3D8 boards they pace their game loop off Present (the cabinet's 60Hz vsync);
+ *  windowed on a PC that runs unthrottled (fast-forwarded). We IAT-hook
+ *  d3d9.dll!Direct3DCreate9 -> IDirect3D9::CreateDevice -> IDirect3DDevice9::
+ *  Present and:
+ *    - throttle Present to a target fps (default 60, ULTRA_FPS_CAP),
+ *    - optionally rotate / upscale-to-window / sharpen (all DEFAULT-OFF, same env
+ *      contract as the D3D8 hook, byte-identical native path when all off),
+ *    - dump the back buffer to a 24-bit BMP (ULTRA_ROT_DUMP=dir) for offline
+ *      verification of a packed/headless game we cannot screenshot.
+ *
+ *  The Haunted Museum dump statically imports d3d9.dll!Direct3DCreate9, so the
+ *  existing ultra_iat_patch_all("d3d9.dll","Direct3DCreate9", ...) in
+ *  jvs_serial_hook.c catches it the same way the D3D8 path does -- no inline
+ *  trampoline / unpack-wait needed for this title. A GetProcAddress fallback is
+ *  kept for a future genuinely-packed Type X2 title.
+ *
+ *  Clean-room: Ultra Loader's own code over the public COM / D3D9 ABI.
+ *
+ *  D3D9 ABI deltas vs D3D8 (all verified against the IDirect3DDevice9 vtable):
+ *    - IDirect3D9::CreateDevice          = slot 16   (D3D8 CreateDevice = 15)
+ *    - IDirect3DDevice9::Reset           = slot 16
+ *    - IDirect3DDevice9::Present         = slot 17   (D3D8 Present = 15)
+ *    - IDirect3DDevice9::EndScene        = slot 42
+ *    - D3DPRESENT_PARAMETERS gains MultiSampleQuality at index [5], shifting all
+ *      later fields by one vs the D3D8 layout.
+ *    - capture uses StretchRect / GetRenderTargetData (D3D9 has no CopyRects /
+ *      CreateImageSurface).
+ * =============================================================================
+ */
+#if defined(_WIN32)
+
+#include <windows.h>
+#define DIRECT3D_VERSION 0x0900
+#define COBJMACROS
+#include <d3d9.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+
+/* ---------------------------------------------------------------------------
+ *  ultra_raw_export -- resolve an export by WALKING THE MODULE'S EXPORT TABLE.
+ *
+ *  Why this exists (crash reproduced live on Mario Kart GP DX, 2026-09-09):
+ *  this hook installs its own Hook_GetProcAddress, which returns OUR wrapper
+ *  for exactly the names below (Direct3DCreate9, D3D11CreateDeviceAndSwapChain,
+ *  CreateDXGIFactory[1], wglSwapBuffers, SwapBuffers) so that PACKED games --
+ *  which have no static IAT slot and resolve the renderer at runtime -- still
+ *  get hooked. But the wrappers themselves then did:
+ *
+ *      Real_X = GetProcAddress(module, "X");   // <-- our own hook answers
+ *      ... Real_X(...)                          // <-- calls ITSELF, forever
+ *
+ *  so the wrapper resolved itself as "the real one" and recursed until the
+ *  stack died: ACCESS_VIOLATION inside the hook, right after the
+ *  "hook armed (packed path)" line appears TWICE in the log.
+ *
+ *  Reading the export directory directly cannot be intercepted, so it always
+ *  yields the genuine implementation. Returns NULL for a forwarded export
+ *  (RVA pointing back inside the export directory), which the callers already
+ *  treat as "no real function".
+ * ------------------------------------------------------------------------- */
+static FARPROC ultra_raw_export(HMODULE mod, const char* want) {
+    BYTE* base = (BYTE*)mod;
+    IMAGE_DOS_HEADER* dos; IMAGE_NT_HEADERS* nt; IMAGE_DATA_DIRECTORY d;
+    IMAGE_EXPORT_DIRECTORY* ed; DWORD *names, *funcs; WORD* ords; DWORD i;
+    if (!base || !want) return NULL;
+    dos = (IMAGE_DOS_HEADER*)base;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return NULL;
+    nt = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) return NULL;
+    d = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    if (!d.VirtualAddress || !d.Size) return NULL;
+    ed    = (IMAGE_EXPORT_DIRECTORY*)(base + d.VirtualAddress);
+    names = (DWORD*)(base + ed->AddressOfNames);
+    ords  = (WORD*) (base + ed->AddressOfNameOrdinals);
+    funcs = (DWORD*)(base + ed->AddressOfFunctions);
+    for (i = 0; i < ed->NumberOfNames; ++i) {
+        const char* nm = (const char*)(base + names[i]);
+        if (strcmp(nm, want) == 0) {
+            DWORD rva = funcs[ords[i]];
+            if (rva >= d.VirtualAddress && rva < d.VirtualAddress + d.Size)
+                return NULL;                     /* forwarded export */
+            return (FARPROC)(void*)(base + rva);
+        }
+    }
+    return NULL;
+}
+
+/* COM vtable indices (IDirect3D9 / IDirect3DDevice9 ABI). */
+#define IDIRECT3D9_CREATEDEVICE      16
+#define IDIRECT3DDEVICE9_RESET       16
+#define IDIRECT3DDEVICE9_PRESENT     17
+
+typedef HRESULT (__stdcall *pCreateDevice9)(void* self, UINT adapter, D3DDEVTYPE devtype,
+                                            HWND hwnd, DWORD flags,
+                                            D3DPRESENT_PARAMETERS* pp, void** ppdev);
+typedef HRESULT (__stdcall *pPresent9)(void* self, const RECT* src, const RECT* dst,
+                                       HWND hwndOverride, const RGNDATA* dirty);
+typedef HRESULT (__stdcall *pReset9)(void* self, D3DPRESENT_PARAMETERS* pp);
+
+static pCreateDevice9 Real_CreateDevice9 = NULL;
+static pPresent9      Real_Present9      = NULL;
+static pReset9        Real_Reset9        = NULL;
+static int            g_present_hooked   = 0;
+
+/* shared logger (gated by ULTRA_JVS_LOG); same file the JVS/D3D8 hooks use. */
+extern void ultra_d3d8_log(const char* fmt, ...);
+#define tlog ultra_d3d8_log
+
+/* ---- upscaler / rotation / sharpen state (mirrors d3d8) -------------------- */
+static HWND g_devwnd   = NULL;
+static int  g_up_w = 0, g_up_h = 0;     /* target client size (0 = no upscale)  */
+static int  g_upscaled = 0;
+static int  g_rotate   = 0;             /* 0 / 90 / 180 / 270                    */
+static int  g_aspect_fill = 1;          /* 1 = stretch, 0 = keep aspect          */
+static int  g_bb_w = 640, g_bb_h = 480; /* game backbuffer size (capture src)    */
+static float g_sharpen = 0.0f;          /* ULTRA_SHARPEN [0,1] (0 = off)         */
+static int   g_aa      = 0;             /* ULTRA_AA edge-smoothing toggle        */
+
+/* rotation/sharpen render resources (created lazily on the device).
+ * g_tex holds the captured frame (RT-usage texture). g_scratch is a tiny RT we
+ * bind so the backbuffer is no longer the device's CURRENT render target before
+ * the StretchRect capture -- the D3D9 debug runtime and several WARP/older drivers
+ * reject StretchRect when the source surface is the active RT (D3DERR_INVALIDCALL),
+ * so we free it first, mirroring the d3d8 scratch trick. */
+static IDirect3DTexture9*   g_tex        = NULL;
+static IDirect3DSurface9*   g_scratch    = NULL;  /* tiny RT to free the backbuffer */
+static IDirect3DSurface9*   g_dumpsys    = NULL;  /* sysmem readback for BMP dump  */
+static int                  g_dumpsys_w = 0, g_dumpsys_h = 0;
+static D3DFORMAT            g_dumpsys_fmt = D3DFMT_UNKNOWN;
+
+static void read_target_res(void) {
+    const char* r = getenv("ULTRA_RES");
+    if (r && *r) {
+        if      (!strcmp(r, "1080p")) { g_up_w = 1920; g_up_h = 1080; }
+        else if (!strcmp(r, "1440p")) { g_up_w = 2560; g_up_h = 1440; }
+        else if (!strcmp(r, "4k") || !strcmp(r, "2160p")) { g_up_w = 3840; g_up_h = 2160; }
+        else { int w=0,h=0; if (sscanf(r, "%dx%d", &w, &h) == 2 && w>0 && h>0) { g_up_w=w; g_up_h=h; } }
+    }
+    const char* w = getenv("ULTRA_RES_W"); const char* h = getenv("ULTRA_RES_H");
+    if (w && *w && h && *h) { int wi=atoi(w), hi=atoi(h); if (wi>0&&hi>0){ g_up_w=wi; g_up_h=hi; } }
+    const char* rot = getenv("ULTRA_ROTATE");
+    if (rot && *rot) { int v = atoi(rot); if (v==90||v==180||v==270) g_rotate = v; }
+    const char* asp = getenv("ULTRA_ASPECT");
+    char ac = (asp && *asp) ? asp[0] : 0;
+    if (ac=='k'||ac=='K'||ac=='p'||ac=='P') g_aspect_fill = 0;
+    else if (ac=='f'||ac=='F'||ac=='s'||ac=='S') g_aspect_fill = 1;
+    else if (g_rotate) g_aspect_fill = 0;
+    if (g_rotate && g_up_w == 0) { g_up_w = 1920; g_up_h = 1080; }
+    const char* shp = getenv("ULTRA_SHARPEN");
+    if (shp && *shp) { float v = (float)atof(shp); if (v<0) v=0; if (v>1) v=1; g_sharpen = v; }
+    const char* aa = getenv("ULTRA_AA");
+    if (aa && *aa) g_aa = atoi(aa);
+}
+
+/* ---- Ultra Loader display mode ------------------------------------------
+ *
+ * The loader's Display setting (Windowed / Borderless / Fullscreen) is exported
+ * as ULTRA_WINDOWED / ULTRA_BORDERLESS / ULTRA_FULLSCREEN by settings.c, and
+ * until now NOTHING on this board read any of them - the window style was
+ * decided solely by a board-local auto-pilot flag. That is why the game came up
+ * as a plain titled window no matter what the loader was set to.
+ *
+ * Returns 0 windowed, 1 borderless, 2 fullscreen, -1 nothing selected. */
+static int ultra_disp_mode(void) {
+    static int v = -2;
+    if (v == -2) {
+        const char* e;
+        v = -1;
+        if ((e = getenv("ULTRA_FULLSCREEN")) && e[0] == '1') v = 2;
+        else if ((e = getenv("ULTRA_BORDERLESS")) && e[0] == '1') v = 1;
+        else if ((e = getenv("ULTRA_WINDOWED"))   && e[0] == '1') v = 0;
+    }
+    return v;
+}
+
+/* Put the game's window into the shape the user asked for.
+ *
+ * Borderless and Fullscreen are BOTH implemented as a popup window covering the
+ * monitor, on purpose. These titles ask for a 16/32-bit EXCLUSIVE device, and
+ * exclusive mode on Win10 is both unreliable for them (device-lost on every
+ * focus change) and the reason the board forced windowed in the first place. A
+ * monitor-sized WS_POPUP is visually identical, sits flush with no title bar,
+ * and keeps the device focus-independent. */
+static void ultra_apply_window_mode(HWND w, UINT bbw, UINT bbh) {
+    int mode = ultra_disp_mode();
+    if (!w || mode < 0) return;
+    if (mode >= 1) {
+        HMONITOR mon = MonitorFromWindow(w, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi; mi.cbSize = sizeof mi;
+        if (!GetMonitorInfoA(mon, &mi)) return;
+        int mw = mi.rcMonitor.right - mi.rcMonitor.left;
+        int mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
+        SetWindowLongA(w, GWL_STYLE,   WS_POPUP | WS_VISIBLE);
+        SetWindowLongA(w, GWL_EXSTYLE, 0);
+        SetWindowPos(w, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top, mw, mh,
+                     SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        tlog("D3D9: display mode = %s -> popup %dx%d at %d,%d (flush, no title bar)",
+             mode == 2 ? "FULLSCREEN" : "BORDERLESS", mw, mh,
+             (int)mi.rcMonitor.left, (int)mi.rcMonitor.top);
+    } else {
+        RECT wr = { 0, 0, (LONG)bbw, (LONG)bbh };
+        SetWindowLongA(w, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+        SetWindowLongA(w, GWL_EXSTYLE, 0);
+        AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+        SetWindowPos(w, HWND_TOP, 0, 0, wr.right - wr.left, wr.bottom - wr.top,
+                     SWP_NOMOVE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        tlog("D3D9: display mode = WINDOWED -> %ux%u client", bbw, bbh);
+    }
+}
+
+/* Force-windowed control. A fullscreen-EXCLUSIVE D3D9 device is LOST whenever it
+ * loses foreground focus; under the unattended auto-pilot (which (re)foregrounds
+ * the game to deliver coin/start keystrokes) that triggers a device-lost the
+ * game's loop may stall on. Running windowed makes the device focus-independent,
+ * so the credit loop runs to completion. Default: force windowed when the
+ * auto-pilot is on (ULTRA_TYPEX2_AUTO=1) OR when ULTRA_TYPEX2_WINDOWED=1; never
+ * when ULTRA_TYPEX2_WINDOWED=0. Off otherwise (native fullscreen path). */
+static int force_windowed(void) {
+    static int v = -1;
+    if (v < 0) {
+        /* An explicit loader Display selection wins over the board-local
+         * heuristics: all three modes run a WINDOWED device (see
+         * ultra_apply_window_mode for why borderless/fullscreen do too). */
+        int m = ultra_disp_mode();
+        if (m >= 0) v = 1;
+        else {
+            const char* w = getenv("ULTRA_TYPEX2_WINDOWED");
+            if (w && *w) v = (w[0] == '1');
+            else { const char* a = getenv("ULTRA_TYPEX2_AUTO"); v = (a && a[0] == '1'); }
+        }
+    }
+    return v;
+}
+
+/* ---- frame limiter (QPC, API-agnostic -- identical algorithm to d3d8) ------ */
+static double        g_target_fps = 60.0;
+static LARGE_INTEGER g_freq, g_last;
+static int           g_timing_init = 0;
+
+static void throttle(void) {
+    if (!g_timing_init) {
+        QueryPerformanceFrequency(&g_freq);
+        QueryPerformanceCounter(&g_last);
+        const char* e = getenv("ULTRA_FPS_CAP");
+        if (e && *e) { double v = atof(e); if (v >= 1.0 && v <= 1000.0) g_target_fps = v; }
+        timeBeginPeriod(1);
+        g_timing_init = 1;
+        tlog("D3D9: frame limiter armed @ %.2f fps", g_target_fps);
+        return;
+    }
+    const double target = (double)g_freq.QuadPart / g_target_fps;
+    LARGE_INTEGER now;
+    for (;;) {
+        QueryPerformanceCounter(&now);
+        const double elapsed = (double)(now.QuadPart - g_last.QuadPart);
+        if (elapsed >= target) break;
+        const double remain_ms = (target - elapsed) * 1000.0 / (double)g_freq.QuadPart;
+        if (remain_ms > 3.0) Sleep((DWORD)(remain_ms - 2.0));
+        else YieldProcessor();
+    }
+    g_last.QuadPart += (LONGLONG)target;
+    if ((double)(now.QuadPart - g_last.QuadPart) > target * 4.0) g_last = now;
+
+    static LARGE_INTEGER mark; static int frames = 0;
+    if (frames == 0) mark = now;
+    if (++frames >= 180) {
+        double secs = (double)(now.QuadPart - mark.QuadPart) / (double)g_freq.QuadPart;
+        if (secs > 0.0) tlog("D3D9: measured %.1f fps (cap %.0f)", frames / secs, g_target_fps);
+        frames = 0;
+    }
+}
+
+/* Vertex for a screen-space textured quad (pre-transformed). */
+typedef struct { float x, y, z, rhw, u, v; } RVERT;
+
+/* ---- BMP dump (the verification path) -------------------------------------
+ * Read the live back buffer into a SYSTEMMEM surface via GetRenderTargetData and
+ * write a 24-bit bottom-up BMP -- the same on-disk format the D3D8 dumper emits
+ * (PIL reads it directly). Works in windowed AND fullscreen-exclusive. The
+ * sysmem surface is cached and reused across frames to avoid per-dump alloc. */
+static void dump_backbuffer_bmp9(IDirect3DDevice9* dev, const char* path) {
+    if (!dev) return;
+    /* ULTRA_DUMP_FRONT=1 captures the actual on-screen image via GetFrontBufferData
+     * instead of backbuffer 0. For a D3DSWAPEFFECT_FLIP swap chain (e.g. Wacky Race,
+     * swapeffect=2) the just-rendered frame may not sit in backbuffer index 0 at the
+     * moment we read it; the front buffer always reflects what reached the monitor.
+     * Front-buffer read needs a 32-bit A8R8G8B8 sysmem surface sized to the whole
+     * adapter output (windowed: virtual desktop; fullscreen: the display mode). */
+    static int front = -1;
+    if (front < 0) { const char* e = getenv("ULTRA_DUMP_FRONT"); front = (e && e[0]=='1'); }
+    if (front) {
+        D3DDISPLAYMODE dm; if (FAILED(IDirect3DDevice9_GetDisplayMode(dev, 0, &dm))) { tlog("D3D9 dump(front): GetDisplayMode fail"); return; }
+        int fw = (int)dm.Width, fh = (int)dm.Height;
+        if (g_dumpsys && (g_dumpsys_w != fw || g_dumpsys_h != fh || g_dumpsys_fmt != D3DFMT_A8R8G8B8)) {
+            IDirect3DSurface9_Release(g_dumpsys); g_dumpsys = NULL;
+        }
+        if (!g_dumpsys) {
+            HRESULT hc = IDirect3DDevice9_CreateOffscreenPlainSurface(dev, fw, fh,
+                            D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &g_dumpsys, NULL);
+            if (FAILED(hc) || !g_dumpsys) { tlog("D3D9 dump(front): CreateOffscreenPlainSurface 0x%08lX (%dx%d)", hc, fw, fh); return; }
+            g_dumpsys_w = fw; g_dumpsys_h = fh; g_dumpsys_fmt = D3DFMT_A8R8G8B8;
+        }
+        HRESULT hr = IDirect3DDevice9_GetFrontBufferData(dev, 0, g_dumpsys);
+        if (FAILED(hr)) { tlog("D3D9 dump(front): GetFrontBufferData 0x%08lX (%dx%d)", hr, fw, fh); return; }
+        D3DLOCKED_RECT flr;
+        if (FAILED(IDirect3DSurface9_LockRect(g_dumpsys, &flr, NULL, D3DLOCK_READONLY))) { tlog("D3D9 dump(front): LockRect fail"); return; }
+        int rowsz = fw*3, pad = (4-(rowsz&3))&3, stride = rowsz+pad, imgsz = stride*fh;
+        unsigned char fhh[14]={0}, ihh[40]={0}; unsigned filesz = 14+40+imgsz;
+        fhh[0]='B'; fhh[1]='M'; *(unsigned*)(fhh+2)=filesz; *(unsigned*)(fhh+10)=54;
+        *(unsigned*)(ihh+0)=40; *(int*)(ihh+4)=fw; *(int*)(ihh+8)=fh;
+        *(unsigned short*)(ihh+12)=1; *(unsigned short*)(ihh+14)=24; *(unsigned*)(ihh+20)=imgsz;
+        FILE* ff = fopen(path,"wb");
+        if (ff) {
+            fwrite(fhh,1,14,ff); fwrite(ihh,1,40,ff);
+            unsigned char* row=(unsigned char*)malloc(stride);
+            for (int y=fh-1;y>=0;--y){ unsigned char* src=(unsigned char*)flr.pBits + y*flr.Pitch;
+                memset(row,0,stride);
+                for (int x=0;x<fw;++x){ row[x*3+0]=src[x*4+0]; row[x*3+1]=src[x*4+1]; row[x*3+2]=src[x*4+2]; }
+                fwrite(row,1,stride,ff); }
+            free(row); fclose(ff);
+            tlog("D3D9: dumped FRONT %dx%d -> %s", fw, fh, path);
+        }
+        IDirect3DSurface9_UnlockRect(g_dumpsys);
+        return;
+    }
+    IDirect3DSurface9* bb = NULL;
+    HRESULT hgb = IDirect3DDevice9_GetBackBuffer(dev, 0, 0, D3DBACKBUFFER_TYPE_MONO, &bb);
+    if (FAILED(hgb) || !bb) { tlog("D3D9 dump: GetBackBuffer 0x%08lX", hgb); return; }
+    D3DSURFACE_DESC d;
+    if (FAILED(IDirect3DSurface9_GetDesc(bb, &d))) { tlog("D3D9 dump: GetDesc fail"); IDirect3DSurface9_Release(bb); return; }
+    /* (re)create the sysmem readback surface if size/format changed */
+    if (g_dumpsys && (g_dumpsys_w != (int)d.Width || g_dumpsys_h != (int)d.Height || g_dumpsys_fmt != d.Format)) {
+        IDirect3DSurface9_Release(g_dumpsys); g_dumpsys = NULL;
+    }
+    if (!g_dumpsys) {
+        HRESULT hc = IDirect3DDevice9_CreateOffscreenPlainSurface(dev, d.Width, d.Height,
+                        d.Format, D3DPOOL_SYSTEMMEM, &g_dumpsys, NULL);
+        if (FAILED(hc) || !g_dumpsys) { tlog("D3D9 dump: CreateOffscreenPlainSurface 0x%08lX", hc); IDirect3DSurface9_Release(bb); return; }
+        g_dumpsys_w = (int)d.Width; g_dumpsys_h = (int)d.Height; g_dumpsys_fmt = d.Format;
+    }
+    HRESULT hr = IDirect3DDevice9_GetRenderTargetData(dev, bb, g_dumpsys);
+    IDirect3DSurface9_Release(bb);
+    if (FAILED(hr)) { tlog("D3D9 dump: GetRenderTargetData 0x%08lX (fmt=%u %ux%u)", hr, d.Format, d.Width, d.Height); return; }
+
+    D3DLOCKED_RECT lr;
+    if (FAILED(IDirect3DSurface9_LockRect(g_dumpsys, &lr, NULL, D3DLOCK_READONLY))) { tlog("D3D9 dump: LockRect fail"); return; }
+    int w = (int)d.Width, h = (int)d.Height;
+    int rowsz = w * 3, pad = (4 - (rowsz & 3)) & 3, stride = rowsz + pad;
+    int imgsz = stride * h;
+    unsigned char fh[14] = {0}, ih[40] = {0};
+    unsigned filesz = 14 + 40 + imgsz;
+    fh[0]='B'; fh[1]='M'; *(unsigned*)(fh+2)=filesz; *(unsigned*)(fh+10)=54;
+    *(unsigned*)(ih+0)=40; *(int*)(ih+4)=w; *(int*)(ih+8)=h;   /* +h = bottom-up */
+    *(unsigned short*)(ih+12)=1; *(unsigned short*)(ih+14)=24; *(unsigned*)(ih+20)=imgsz;
+    /* the implicit backbuffer is X8R8G8B8/A8R8G8B8 (BGRA byte order); for an odd
+     * 16-bit format we still write something (channels approximated) rather than
+     * fail -- but Type X2 backbuffers are 32-bit, so the BGRA path is the norm. */
+    int bytespp = (d.Format == D3DFMT_R5G6B5 || d.Format == D3DFMT_X1R5G5B5 ||
+                   d.Format == D3DFMT_A1R5G5B5) ? 2 : 4;
+    FILE* f = fopen(path, "wb");
+    if (f) {
+        fwrite(fh,1,14,f); fwrite(ih,1,40,f);
+        unsigned char* row = (unsigned char*)malloc(stride);
+        for (int y = h-1; y >= 0; --y) {
+            unsigned char* src = (unsigned char*)lr.pBits + y * lr.Pitch;
+            memset(row, 0, stride);
+            if (bytespp == 4) {
+                for (int x = 0; x < w; ++x) {        /* BGRA -> BGR */
+                    row[x*3+0] = src[x*4+0]; row[x*3+1] = src[x*4+1]; row[x*3+2] = src[x*4+2];
+                }
+            } else {                                  /* R5G6B5 -> BGR */
+                for (int x = 0; x < w; ++x) {
+                    unsigned short px = ((unsigned short*)src)[x];
+                    unsigned r = (px >> 11) & 0x1F, g = (px >> 5) & 0x3F, b = px & 0x1F;
+                    row[x*3+0] = (unsigned char)(b << 3);
+                    row[x*3+1] = (unsigned char)(g << 2);
+                    row[x*3+2] = (unsigned char)(r << 3);
+                }
+            }
+            fwrite(row, 1, stride, f);
+        }
+        free(row); fclose(f);
+        tlog("D3D9: dumped %dx%d fmt=%u -> %s", w, h, d.Format, path);
+    }
+    IDirect3DSurface9_UnlockRect(g_dumpsys);
+}
+
+/* ---- rotation / sharpen post-process resources ---------------------------- */
+static int ensure_rot_resources9(IDirect3DDevice9* dev) {
+    if (g_tex && g_scratch) return 1;
+    if (!g_tex) {
+        HRESULT hr = IDirect3DDevice9_CreateTexture(dev, g_bb_w, g_bb_h, 1, D3DUSAGE_RENDERTARGET,
+                                                    D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &g_tex, NULL);
+        if (FAILED(hr)) { tlog("D3D9: CreateTexture(RT) failed 0x%08lX", hr); return 0; }
+        /* clear it once to opaque black (RT texture initial contents are driver-defined) */
+        IDirect3DSurface9* ts = NULL;
+        if (SUCCEEDED(IDirect3DTexture9_GetSurfaceLevel(g_tex, 0, &ts)) && ts) {
+            IDirect3DSurface9* prevRT = NULL;
+            IDirect3DDevice9_GetRenderTarget(dev, 0, &prevRT);
+            if (SUCCEEDED(IDirect3DDevice9_SetRenderTarget(dev, 0, ts)))
+                IDirect3DDevice9_Clear(dev, 0, NULL, D3DCLEAR_TARGET, 0xFF000000, 1.0f, 0);
+            if (prevRT) { IDirect3DDevice9_SetRenderTarget(dev, 0, prevRT); IDirect3DSurface9_Release(prevRT); }
+            IDirect3DSurface9_Release(ts);
+        }
+    }
+    if (!g_scratch) {
+        /* a small RT surface we bind so the backbuffer is no longer the current RT,
+         * letting StretchRect(backbuffer -> g_tex) succeed on strict drivers. */
+        HRESULT hr = IDirect3DDevice9_CreateRenderTarget(dev, 64, 64, D3DFMT_X8R8G8B8,
+                        D3DMULTISAMPLE_NONE, 0, FALSE, &g_scratch, NULL);
+        if (FAILED(hr)) { tlog("D3D9: CreateRenderTarget(scratch) failed 0x%08lX", hr); return 0; }
+    }
+    tlog("D3D9: rotation resources ready (rotate=%d out=%dx%d src=%dx%d)", g_rotate, g_up_w, g_up_h, g_bb_w, g_bb_h);
+    return 1;
+}
+
+/* Free pool-DEFAULT resources before a device Reset (device-lost). */
+static void release_default_resources9(void) {
+    if (g_tex)     { IDirect3DTexture9_Release(g_tex);     g_tex = NULL; }
+    if (g_scratch) { IDirect3DSurface9_Release(g_scratch); g_scratch = NULL; }
+    /* g_dumpsys is SYSTEMMEM (survives Reset) but invalidate cache to be safe */
+}
+
+/* Rotate / upscale / sharpen the finished frame in place inside the backbuffer.
+ * D3D9 state is saved/restored with a persistent D3DSBT_ALL state block (clean &
+ * reliable in D3D9, unlike the d3d8 driver issue that forced manual save/restore).
+ * Returns 1 if the backbuffer now holds the processed frame. */
+#define PP_ROTATE   1
+#define PP_SHARPEN  2
+static IDirect3DStateBlock9* g_sb = NULL;
+static int present_postprocess9(IDirect3DDevice9* dev, int mode) {
+    if (!(mode & PP_ROTATE)) return 0;   /* sharpen-only handled inline below; v1 rotate path */
+    if (!ensure_rot_resources9(dev)) return 0;
+
+    IDirect3DSurface9 *gameBB = NULL, *texSurf = NULL, *oldRT = NULL, *oldDS = NULL;
+    HRESULT hrGBB = IDirect3DDevice9_GetBackBuffer(dev, 0, 0, D3DBACKBUFFER_TYPE_MONO, &gameBB);
+    HRESULT hrGSL = IDirect3DTexture9_GetSurfaceLevel(g_tex, 0, &texSurf);
+    IDirect3DDevice9_GetRenderTarget(dev, 0, &oldRT);
+    /* save the depth-stencil too: SetRenderTarget(0, gameBB) does NOT auto-detach it
+     * and a D3DSBT_ALL state block excludes RT+DS, so without this the Clear/Draw
+     * would run against whatever DS the game last bound (a half-res DS would fail
+     * the size check). We render a 2D quad with Z off, so DS can be NULL. */
+    IDirect3DDevice9_GetDepthStencilSurface(dev, &oldDS);
+
+    /* 1) snapshot the finished frame into g_tex's RT surface. StretchRect rejects a
+     * source that is the device's CURRENT render target on strict drivers, and the
+     * backbuffer IS the live RT at Present time -- so park the RT on g_scratch first
+     * (and drop the DS) to free the backbuffer, exactly like the d3d8 path. */
+    HRESULT hrSR = E_FAIL;
+    if (gameBB && texSurf && g_scratch) {
+        IDirect3DDevice9_SetRenderTarget(dev, 0, g_scratch);
+        IDirect3DDevice9_SetDepthStencilSurface(dev, NULL);
+        hrSR = IDirect3DDevice9_StretchRect(dev, gameBB, NULL, texSurf, NULL, D3DTEXF_LINEAR);
+    }
+    /* if the capture failed, leave the game's frame untouched (restore its targets
+     * and bail) rather than drawing stale/black g_tex contents over the backbuffer. */
+    if (FAILED(hrSR)) {
+        if (oldRT) IDirect3DDevice9_SetRenderTarget(dev, 0, oldRT);
+        IDirect3DDevice9_SetDepthStencilSurface(dev, oldDS);
+        if (oldDS)   IDirect3DSurface9_Release(oldDS);
+        if (oldRT)   IDirect3DSurface9_Release(oldRT);
+        if (texSurf) IDirect3DSurface9_Release(texSurf);
+        if (gameBB)  IDirect3DSurface9_Release(gameBB);
+        static int warned = 0;
+        if (!warned) { warned = 1; tlog("D3D9 ROT: StretchRect capture failed 0x%08lX -- leaving frame untouched", hrSR); }
+        return 0;
+    }
+
+    HRESULT hrSRT = E_FAIL, hrBS = E_FAIL, hrDP = E_FAIL;
+    if (gameBB && SUCCEEDED(hrSRT = IDirect3DDevice9_SetRenderTarget(dev, 0, gameBB))) {
+        /* capture full device state once into a persistent state block, restore after.
+         * If the state block can't be created (pure/limited device) we must NOT
+         * clobber the game's pipeline state with our quad-draw values -- skip the
+         * post-process for this frame and leave the captured frame in the backbuffer
+         * (StretchRect already copied it back? no -- the backbuffer still holds the
+         * game's own frame here, we only read it). Restore targets and bail. */
+        if (!g_sb) IDirect3DDevice9_CreateStateBlock(dev, D3DSBT_ALL, &g_sb);
+        if (!g_sb) {
+            if (oldRT) IDirect3DDevice9_SetRenderTarget(dev, 0, oldRT);
+            IDirect3DDevice9_SetDepthStencilSurface(dev, oldDS);
+            if (oldDS)   IDirect3DSurface9_Release(oldDS);
+            if (oldRT)   IDirect3DSurface9_Release(oldRT);
+            if (texSurf) IDirect3DSurface9_Release(texSurf);
+            if (gameBB)  IDirect3DSurface9_Release(gameBB);
+            static int warned = 0;
+            if (!warned) { warned = 1; tlog("D3D9 ROT: CreateStateBlock failed -- skipping post-process (no clobber)"); }
+            return 0;
+        }
+        IDirect3DStateBlock9_Capture(g_sb);
+
+        IDirect3DDevice9_Clear(dev, 0, NULL, D3DCLEAR_TARGET, 0xFF000000, 1.0f, 0);
+        if (SUCCEEDED(hrBS = IDirect3DDevice9_BeginScene(dev))) {
+            float W = (float)g_bb_w, H = (float)g_bb_h, dx = 0, dy = 0, dw = W, dh = H;
+            if (!g_aspect_fill) {
+                float WW = (float)g_up_w, WH = (float)g_up_h;
+                float aw = (g_rotate == 90 || g_rotate == 270) ? (float)g_bb_h : (float)g_bb_w;
+                float ah = (g_rotate == 90 || g_rotate == 270) ? (float)g_bb_w : (float)g_bb_h;
+                float s = (WW/aw < WH/ah) ? WW/aw : WH/ah;
+                float fw = aw * s, fh = ah * s;
+                float fx = (WW - fw) * 0.5f, fy = (WH - fh) * 0.5f;
+                dx = fx / WW * W; dy = fy / WH * H;
+                dw = fw / WW * W; dh = fh / WH * H;
+            }
+            float u[4], v[4];
+            switch (g_rotate) {
+                case 90:  u[0]=0;v[0]=1; u[1]=0;v[1]=0; u[2]=1;v[2]=0; u[3]=1;v[3]=1; break;
+                case 180: u[0]=1;v[0]=1; u[1]=0;v[1]=1; u[2]=0;v[2]=0; u[3]=1;v[3]=0; break;
+                case 270: u[0]=1;v[0]=0; u[1]=1;v[1]=1; u[2]=0;v[2]=1; u[3]=0;v[3]=0; break;
+                default:  u[0]=0;v[0]=0; u[1]=1;v[1]=0; u[2]=1;v[2]=1; u[3]=0;v[3]=1; break;
+            }
+            const float o = -0.5f;   /* texel-center alignment */
+            RVERT q[4] = {
+                { dx+o,    dy+o,    0, 1, u[0], v[0] },
+                { dx+dw+o, dy+o,    0, 1, u[1], v[1] },
+                { dx+dw+o, dy+dh+o, 0, 1, u[2], v[2] },
+                { dx+o,    dy+dh+o, 0, 1, u[3], v[3] },
+            };
+            /* neutralize whatever pipeline state the game left bound (D3D9 moved
+             * filter/address from SetTextureStageState to SetSamplerState). */
+            IDirect3DDevice9_SetVertexShader(dev, NULL);
+            IDirect3DDevice9_SetPixelShader(dev, NULL);
+            IDirect3DDevice9_SetFVF(dev, D3DFVF_XYZRHW | D3DFVF_TEX1);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_LIGHTING, FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_ZENABLE, D3DZB_FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_ZWRITEENABLE, FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_CULLMODE, D3DCULL_NONE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_ALPHABLENDENABLE, FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_ALPHATESTENABLE, FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_FOGENABLE, FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_STENCILENABLE, FALSE);
+            IDirect3DDevice9_SetRenderState(dev, D3DRS_COLORWRITEENABLE, 0x0000000F);
+            IDirect3DDevice9_SetTexture(dev, 0, (IDirect3DBaseTexture9*)g_tex);
+            IDirect3DDevice9_SetTextureStageState(dev, 0, D3DTSS_COLOROP,   D3DTOP_SELECTARG1);
+            IDirect3DDevice9_SetTextureStageState(dev, 0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+            IDirect3DDevice9_SetTextureStageState(dev, 0, D3DTSS_ALPHAOP,   D3DTOP_DISABLE);
+            IDirect3DDevice9_SetTextureStageState(dev, 1, D3DTSS_COLOROP,   D3DTOP_DISABLE);
+            IDirect3DDevice9_SetTextureStageState(dev, 1, D3DTSS_ALPHAOP,   D3DTOP_DISABLE);
+            IDirect3DDevice9_SetSamplerState(dev, 0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+            IDirect3DDevice9_SetSamplerState(dev, 0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            IDirect3DDevice9_SetSamplerState(dev, 0, D3DSAMP_ADDRESSU,  D3DTADDRESS_CLAMP);
+            IDirect3DDevice9_SetSamplerState(dev, 0, D3DSAMP_ADDRESSV,  D3DTADDRESS_CLAMP);
+            hrDP = IDirect3DDevice9_DrawPrimitiveUP(dev, D3DPT_TRIANGLEFAN, 2, q, sizeof(RVERT));
+            IDirect3DDevice9_EndScene(dev);
+        }
+        if (g_sb) IDirect3DStateBlock9_Apply(g_sb);          /* restore game state */
+        if (oldRT) IDirect3DDevice9_SetRenderTarget(dev, 0, oldRT);
+    }
+    /* restore the game's depth-stencil (state blocks don't capture it) -- symmetric
+     * with oldRT. SetDepthStencilSurface(NULL) is valid and restores "no DS" too. */
+    IDirect3DDevice9_SetDepthStencilSurface(dev, oldDS);
+    if (oldDS)   IDirect3DSurface9_Release(oldDS);
+    if (oldRT)   IDirect3DSurface9_Release(oldRT);
+    if (texSurf) IDirect3DSurface9_Release(texSurf);
+    if (gameBB)  IDirect3DSurface9_Release(gameBB);
+
+    static int diag = 0;
+    if (!diag) { diag = 1;
+        tlog("D3D9 ROT DIAG: GetBB=0x%08lX GetSurf=0x%08lX StretchRect=0x%08lX SetRT=0x%08lX BeginScene=0x%08lX DrawPrim=0x%08lX",
+             hrGBB, hrGSL, hrSR, hrSRT, hrBS, hrDP);
+    }
+    return (hrSRT == D3D_OK);
+}
+
+/* ---- output-window resize for upscale (mirrors d3d8) ----------------------- */
+static WNDPROC g_orig_wndproc = NULL;
+static LRESULT CALLBACK ultra_output_wndproc9(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
+    if (msg == WM_ERASEBKGND) return 1;
+    if (g_orig_wndproc) return CallWindowProcA(g_orig_wndproc, h, msg, wp, lp);
+    return DefWindowProcA(h, msg, wp, lp);
+}
+static void resize_output_window9(HWND w) {
+    if (!w || g_upscaled) return;
+    SetClassLongPtrA(w, GCLP_HBRBACKGROUND, (LONG_PTR)GetStockObject(BLACK_BRUSH));
+    /* Subclass once. After a device Reset we may re-enter here (g_upscaled was
+     * cleared) but our wndproc is still installed -- only (re)subclass if the
+     * current wndproc isn't already ours, so g_orig_wndproc is never double-wrapped
+     * (which would chain our proc to itself and lose the game's original). */
+    if ((WNDPROC)(LONG_PTR)GetWindowLongPtrA(w, GWLP_WNDPROC) != ultra_output_wndproc9)
+        g_orig_wndproc = (WNDPROC)(LONG_PTR)SetWindowLongPtrA(w, GWLP_WNDPROC, (LONG_PTR)ultra_output_wndproc9);
+    RECT wr = { 0, 0, g_up_w, g_up_h };
+    SetWindowLongA(w, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    AdjustWindowRect(&wr, WS_POPUP, FALSE);
+    SetWindowPos(w, HWND_TOP, 0, 0, wr.right - wr.left, wr.bottom - wr.top,
+                 SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+    InvalidateRect(w, NULL, TRUE);
+    g_upscaled = 1;
+    tlog("D3D9: output window -> %dx%d%s (black bg, erase swallowed)", g_up_w, g_up_h, g_rotate ? " (rotated)" : "");
+}
+
+/* ---- dump scheduling ------------------------------------------------------ */
+static const char* g_dump_dir = NULL;
+static int         g_dump_dir_read = 0;
+static int         g_present_count = 0;
+/* sample several frames so a content frame is reliably caught (attract loops
+ * through black transitions). Same cadence as the D3D8 dumper. ULTRA_DUMP_EVERY=N
+ * overrides with a periodic dump every N presents (for capturing a long credit
+ * loop / gameplay window in an unattended probe). */
+static int dump_due(int n) {
+    static int every = -1;
+    if (every < 0) { const char* e = getenv("ULTRA_DUMP_EVERY"); every = (e && *e) ? atoi(e) : 0; }
+    if (every > 0) return (n % every) == 0;
+    return (n==120||n==300||n==600||n==900||n==1200||n==1500||n==1800||n==2100);
+}
+
+static HRESULT __stdcall Hook_Present9(void* self, const RECT* src, const RECT* dst,
+                                       HWND hwndOverride, const RGNDATA* dirty) {
+    throttle();
+    IDirect3DDevice9* dev = (IDirect3DDevice9*)self;
+    const int do_sharpen = (g_sharpen > 0.0f);
+    const int do_rotate  = (g_rotate != 0);
+    if (!g_dump_dir_read) { g_dump_dir = getenv("ULTRA_ROT_DUMP"); g_dump_dir_read = 1; }
+    const int want_dump  = (g_dump_dir && *g_dump_dir);
+    /* If the device is LOST, our post-process + dump calls would all return
+     * D3DERR_DEVICELOST/INVALIDCALL (and a BeginScene/EndScene on a lost device can
+     * leave the scene flag inconsistent on some drivers). Skip them and just
+     * throttle + Real_Present, which surfaces the lost device to the game so it can
+     * Reset. Only checked when a feature that touches the device is active, so the
+     * plain native path stays byte-identical. */
+    int dev_ok = 1;
+    if (do_rotate || do_sharpen || want_dump)
+        dev_ok = (IDirect3DDevice9_TestCooperativeLevel(dev) == D3D_OK);
+
+    if ((g_up_w > 0 || do_rotate) && !g_upscaled)
+        resize_output_window9(g_devwnd ? g_devwnd : hwndOverride);
+
+    /* rotation/sharpen post-process in the backbuffer (default-OFF; native path
+     * untouched when both off) */
+    if (do_rotate && dev_ok)
+        present_postprocess9(dev, PP_ROTATE | (do_sharpen ? PP_SHARPEN : 0));
+
+    /* env-gated BMP dump of the finished backbuffer -- independent of rotate/
+     * sharpen so it works for a plain Haunted Museum run. Runs AFTER any
+     * post-process so the dump reflects exactly what reaches the screen. */
+    ++g_present_count;
+    if (want_dump && dev_ok && dump_due(g_present_count)) {
+        char p[512];
+        snprintf(p, sizeof p, "%s/dump_raw_%04d.bmp", g_dump_dir, g_present_count);
+        dump_backbuffer_bmp9(dev, p);
+    }
+
+    if (g_up_w > 0 || do_rotate)        /* stretch backbuffer -> enlarged window */
+        return Real_Present9(self, NULL, NULL, hwndOverride, NULL);
+    return Real_Present9(self, src, dst, hwndOverride, dirty);
+}
+
+static HRESULT __stdcall Hook_Reset9(void* self, D3DPRESENT_PARAMETERS* pp) {
+    /* device-lost: free our pool-DEFAULT resources, let the game Reset, recreate lazily */
+    release_default_resources9();
+    if (g_sb) { IDirect3DStateBlock9_Release(g_sb); g_sb = NULL; }
+    if (pp) {
+        if (pp->BackBufferWidth > 0 && pp->BackBufferHeight > 0) {
+            g_bb_w = (int)pp->BackBufferWidth; g_bb_h = (int)pp->BackBufferHeight;
+        }
+        if ((g_up_w > 0 || force_windowed()) && !pp->Windowed) {
+            pp->Windowed = TRUE;
+            pp->BackBufferFormat = D3DFMT_X8R8G8B8;
+            pp->FullScreen_RefreshRateInHz = 0;
+            pp->PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
+        }
+    }
+    HRESULT hr = Real_Reset9(self, pp);
+    /* A Reset can restore the window to its original (fullscreen/native) size/style,
+     * so the enlarged-window + black-brush + erase-swallow setup must be re-applied:
+     * clear g_upscaled so the next Present re-runs resize_output_window9. (The
+     * re-subclass there is guarded so g_orig_wndproc isn't double-wrapped.) */
+    if (SUCCEEDED(hr) && (g_up_w > 0 || g_rotate)) g_upscaled = 0;
+    tlog("D3D9: Reset -> 0x%08lX (bb=%dx%d)", hr, g_bb_w, g_bb_h);
+    return hr;
+}
+
+static void patch_vtable_entry(void* obj, int index, void* hook, void** out_real) {
+    if (!obj) return;
+    void** vtbl = *(void***)obj;
+    DWORD old;
+    if (VirtualProtect(&vtbl[index], sizeof(void*), PAGE_EXECUTE_READWRITE, &old)) {
+        if (out_real && !*out_real) *out_real = (void*)vtbl[index];
+        vtbl[index] = hook;
+        VirtualProtect(&vtbl[index], sizeof(void*), old, &old);
+    }
+}
+
+static HRESULT __stdcall Hook_CreateDevice9(void* self, UINT adapter, D3DDEVTYPE devtype,
+                                            HWND hwnd, DWORD flags,
+                                            D3DPRESENT_PARAMETERS* pp, void** ppdev) {
+    read_target_res();
+    if (pp) {
+        g_devwnd = pp->hDeviceWindow ? pp->hDeviceWindow : hwnd;
+        { extern void ultra_typex2_gun_set_window(HWND);
+          ultra_typex2_gun_set_window(g_devwnd); }   /* gun bridge maps to this client rect */
+        if (pp->BackBufferWidth > 0 && pp->BackBufferHeight > 0) {
+            g_bb_w = (int)pp->BackBufferWidth; g_bb_h = (int)pp->BackBufferHeight;
+        }
+        tlog("D3D9: CreateDevice bb=%ux%u fmt=%u swapeffect=%u hwnd=%08X windowed=%u ms=%u/%lu flags=%08lX",
+             pp->BackBufferWidth, pp->BackBufferHeight, pp->BackBufferFormat, pp->SwapEffect,
+             (unsigned)(uintptr_t)pp->hDeviceWindow, pp->Windowed, pp->MultiSampleType,
+             (unsigned long)pp->MultiSampleQuality, (unsigned long)pp->Flags);
+        /* upscale needs windowed so Present can stretch the backbuffer to the
+         * enlarged window; the auto-pilot needs windowed so a focus change can't
+         * lose the exclusive device mid-credit-loop. Force windowed + desktop-safe
+         * 32-bit format in either case. */
+        if ((g_up_w > 0 || force_windowed()) && !pp->Windowed) {
+            pp->Windowed = TRUE;
+            pp->BackBufferFormat = D3DFMT_X8R8G8B8;
+            pp->FullScreen_RefreshRateInHz = 0;
+            pp->PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
+            tlog("D3D9: forced WINDOWED (%s) (backbuffer stays %ux%u)",
+                 g_up_w > 0 ? "upscale" : "auto-pilot", pp->BackBufferWidth, pp->BackBufferHeight);
+        }
+    } else if (!g_devwnd) {
+        g_devwnd = hwnd;
+    }
+    HRESULT hr = Real_CreateDevice9(self, adapter, devtype, hwnd, flags, pp, ppdev);
+    if (hr >= 0 && ppdev && *ppdev && !g_present_hooked) {
+        patch_vtable_entry(*ppdev, IDIRECT3DDEVICE9_PRESENT, (void*)Hook_Present9, (void**)&Real_Present9);
+        patch_vtable_entry(*ppdev, IDIRECT3DDEVICE9_RESET,   (void*)Hook_Reset9,   (void**)&Real_Reset9);
+        g_present_hooked = 1;
+        tlog("D3D9: device created -> Present+Reset hooked (limiter%s%s%s)",
+             (g_up_w>0)?" + upscale":"", g_rotate?" + rotate":"", (g_sharpen>0)?" + sharpen":"");
+        /* style the window only after the device exists, so we are not fighting
+         * D3D's own resize during creation */
+        ultra_apply_window_mode(hwnd ? hwnd : g_devwnd,
+                                pp ? pp->BackBufferWidth  : 0,
+                                pp ? pp->BackBufferHeight : 0);
+    }
+    return hr;
+}
+
+/* Patch IDirect3D9::CreateDevice (slot 16) on the returned IDirect3D9. */
+void ultra_d3d9_install_throttle(void* d3d9) {
+    if (!d3d9) return;
+    patch_vtable_entry(d3d9, IDIRECT3D9_CREATEDEVICE, (void*)Hook_CreateDevice9, (void**)&Real_CreateDevice9);
+}
+
+/* Real Direct3DCreate9 hook (replaces the d3d8_throttle.c passthrough stub).
+ * Called via the IAT patch in jvs_serial_hook.c. Resolves the real export,
+ * calls it, then arms the throttle/dump on the returned IDirect3D9. */
+typedef IDirect3D9* (__stdcall *pDirect3DCreate9)(UINT);
+static pDirect3DCreate9 Real_Direct3DCreate9 = NULL;
+void* __stdcall ultra_Hook_Direct3DCreate9(UINT ver) {
+    if (!Real_Direct3DCreate9) {
+        HMODULE m = GetModuleHandleA("d3d9.dll");
+        if (!m) m = LoadLibraryA("d3d9.dll");
+        if (m) Real_Direct3DCreate9 = (pDirect3DCreate9)(void*)ultra_raw_export(m, "Direct3DCreate9");
+    }
+    IDirect3D9* r = Real_Direct3DCreate9 ? Real_Direct3DCreate9(ver) : NULL;
+    tlog("D3D9: Direct3DCreate9(0x%X) -> %p %s", ver, (void*)r, r ? "OK" : "NULL(D3D9 init failed)");
+    if (r) ultra_d3d9_install_throttle(r);
+    return r;
+}
+
+#endif /* _WIN32 */

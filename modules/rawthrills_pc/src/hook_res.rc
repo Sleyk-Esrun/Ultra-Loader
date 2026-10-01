@@ -1,0 +1,10 @@
+/* hook_res.rc -- embeds this board's own hook DLL into ultra_rawthrills_pc.dll
+ * as RCDATA, so exactly one file ships/gets signed for this board. Built by
+ * build_module.sh AFTER build_hook.sh produces the hook binary (which lands
+ * at the board root, not src/hook/ -- see that script). Extracted back out
+ * at runtime by find_hook() in rawthrills_pc_main.c. See
+ * docs/PROJECT_LICENSING_AND_SIGNING.md.
+ *
+ * 32-bit only.
+ */
+HOOK32 RCDATA "../ultra_rawthrills_hook32.dll"

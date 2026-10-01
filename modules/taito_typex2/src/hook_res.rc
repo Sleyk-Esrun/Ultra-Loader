@@ -1,0 +1,11 @@
+/* hook_res.rc -- embeds this board's own from-source hook DLL into
+ * ultra_taito_typex2.dll as RCDATA, so exactly one file ships/gets signed for
+ * this board. Built by build_module.sh AFTER src/build_hook.sh produces the
+ * hook binary. Extracted back out at runtime by find_hook() in
+ * taito_typex2_main.c. See docs/PROJECT_LICENSING_AND_SIGNING.md.
+ *
+ * 32-bit only -- main.c never looks for a 64-bit variant (this spawner
+ * injects in-process, both sides 32-bit); the ultra_taito_typex2_hook64.dll
+ * build_hook.sh also produces is genuinely unused by any code path here.
+ */
+HOOK32 RCDATA "ultra_taito_typex2_hook32.dll"

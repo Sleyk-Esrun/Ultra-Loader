@@ -1,0 +1,185 @@
+ULTRA LOADER COMMUNITY LICENSE
+Version 1.0
+
+Copyright (c) Sleyk and the Ultra Loader contributors.
+
+================================================================================
+PREAMBLE
+================================================================================
+
+Ultra Loader exists to preserve arcade games and to render pay-to-play
+obsolete. It is, and will always be, free. There is no subscription, no
+paywall, and no tier system. No game is ever locked behind a payment. All
+research and development is returned to the community at no cost.
+
+This license governs the open components of the Ultra Loader project: the
+system board module source code and the firmware modules published by the
+project. It is written to keep that work open, improvable, and owned by the
+community that uses it, while protecting it from commercial exploitation and
+from being turned into the very thing it was built to replace.
+
+The spirit of this license is simple: study it, improve it, share your
+improvements, and never charge anyone for access to any of it. If you build on
+this work, bring your work back to the community.
+
+================================================================================
+1. DEFINITIONS
+================================================================================
+
+"The Project" means Ultra Loader, its developer (Sleyk), and its contributors.
+
+"The Loader" means the Ultra Loader application and its proprietary components,
+distributed in compiled form (for example, as a release download). The Loader
+is NOT licensed under this document. See Section 2.
+
+"Board Modules" means the system board module source code published in this
+repository under the modules/ directory: original hook code, configuration
+data, and board-specific compatibility logic written by the Project.
+
+"Firmware Modules" means the per-game firmware files (.ufw) published by the
+Project and distributed separately from this repository.
+
+"Covered Work" means the Board Modules and Firmware Modules, together with any
+modification, derivative, or contribution to them.
+
+"You" means any individual or entity exercising rights under this license.
+
+================================================================================
+2. THE LOADER IS SEPARATE AND PROPRIETARY
+================================================================================
+
+The Loader itself is proprietary software, provided free of charge under the
+Ultra Loader End User License Agreement (EULA), available at
+https://ultraloader.org/eula . The Loader is NOT covered by this license. You
+may not sell, sublicense, commercially exploit, or redistribute modified
+versions of the Loader. This license applies ONLY to the Covered Work defined
+above.
+
+================================================================================
+3. GRANT OF RIGHTS (COVERED WORK)
+================================================================================
+
+Subject to the conditions below, the Project grants You a worldwide,
+royalty-free, non-exclusive license to:
+
+  (a) use and run the Covered Work;
+  (b) study the Covered Work and how it works;
+  (c) modify the Covered Work and create improvements and derivatives;
+  (d) redistribute the Covered Work and your modifications, in source form,
+      to the community.
+
+This is a license to build with, learn from, and improve the Covered Work
+together. You are encouraged to contribute your improvements back to the
+Project (see Section 7).
+
+================================================================================
+4. CONDITIONS
+================================================================================
+
+Every exercise of the rights in Section 3 is subject to all of the following:
+
+  4.1  NON-COMMERCIAL. You may not sell, charge for, or otherwise commercially
+       exploit the Covered Work, access to it, or anything made accessible
+       through it. You may not use the Covered Work in a commercial setting
+       (including arcades, kiosks, or paid entertainment venues) without
+       explicit written permission from the Project.
+
+  4.2  SHARE ALIKE. If You distribute the Covered Work or any modification of
+       it, You must do so in source form and under this same license. Keep it
+       open; do not relicense it or close it off.
+
+  4.3  ATTRIBUTION. You must retain all copyright notices, attributions, and
+       Project branding in the Covered Work. You may add your own attribution
+       for your contributions; you may not remove or misrepresent the
+       Project's.
+
+  4.4  NO GATEKEEPING. You may not place the Covered Work, or any derivative,
+       behind a paywall, a required donation, a subscription, or any other
+       barrier to access.
+
+  4.5  STATE CHANGES. If You modify a file, say so plainly in the file or in an
+       accompanying note, so others can tell your work from the original.
+
+================================================================================
+5. CLEAN-ROOM / NO GAME CONTENT
+================================================================================
+
+The Covered Work is original, clean-room development. It contains no
+copyrighted game code, no extracted game assets, and no proprietary firmware
+from any third party. It speaks to arcade hardware protocols and operating
+system interfaces; it does not include, embed, or distribute any game files.
+
+You must keep it that way. Do not contribute, add, or distribute copyrighted
+game code, extracted assets, or third-party proprietary firmware as part of the
+Covered Work. Any contribution containing such material will be rejected and
+removed. The sourcing and legality of game files is solely the responsibility
+of the end user, as described in the EULA.
+
+================================================================================
+6. THE PROJECT'S COMMITMENT
+================================================================================
+
+These are promises to the community. They are not a disclaimer of your rights;
+they are a statement of intent that the Project asks every contributor to
+honor:
+
+  - Ultra Loader will always be free to download and use. No subscription, no
+    paywall, no tier system, ever.
+  - No game access will ever be paywalled. Every user gets the same software
+    with the same capabilities.
+  - No donations are required or solicited as a condition of use.
+  - All research and development is returned to the community at no cost.
+
+================================================================================
+7. CONTRIBUTIONS
+================================================================================
+
+By submitting a contribution to the Project (for example, via pull request),
+You:
+
+  (a) license your contribution to the Project and to all users under this
+      same Ultra Loader Community License;
+  (b) affirm that the contribution is your own original work, created
+      clean-room, and that You have the right to license it;
+  (c) affirm that it contains no copyrighted game code, extracted game assets,
+      or third-party proprietary firmware, and no reference to or code taken
+      from any competing loader or tool.
+
+================================================================================
+8. NO WARRANTY
+================================================================================
+
+THE COVERED WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. THE PROJECT DOES NOT
+WARRANT THAT THE COVERED WORK WILL BE ERROR-FREE OR COMPATIBLE WITH ANY
+PARTICULAR GAME OR HARDWARE. USE IS AT YOUR OWN RISK.
+
+================================================================================
+9. LIMITATION OF LIABILITY
+================================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+PROJECT, ITS DEVELOPER, OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES ARISING FROM YOUR USE
+OF OR INABILITY TO USE THE COVERED WORK, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
+
+================================================================================
+10. TERMINATION
+================================================================================
+
+Any breach of this license automatically terminates the rights granted to You
+under it. Rights may be reinstated by the Project in writing. Sections 5, 8,
+and 9 survive termination.
+
+================================================================================
+11. GENERAL
+================================================================================
+
+If any provision of this license is held unenforceable, the remaining
+provisions remain in full effect. This license constitutes the entire
+agreement regarding the Covered Work and supersedes all prior understandings.
+
+For permissions beyond the scope of this license (including any commercial
+use), contact the Project through https://ultraloader.org .

@@ -1,0 +1,9 @@
+/* hook_res.rc -- embeds this board's own hook DLL into ultra_examu_exboard.dll
+ * as RCDATA, so exactly one file ships/gets signed for this board. Built by
+ * build_module.sh AFTER src/hook/build_examu_hook.sh produces the hook
+ * binary. Extracted back out at runtime by find_hook() in
+ * examu_exboard_main.c. See docs/PROJECT_LICENSING_AND_SIGNING.md.
+ *
+ * 32-bit only -- all eX-BOARD games ship as 32-bit executables.
+ */
+HOOK32 RCDATA "hook/ultra_examu_exboard_hook32.dll"

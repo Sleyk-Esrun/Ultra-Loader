@@ -1,0 +1,17 @@
+; iDmacDrv64.dll export ordinals.
+;
+; ismACIO.dll imports #1, #2, #5 and #6 BY ORDINAL, with no names in its import
+; table at all, so the ordinal numbers here are not cosmetic - they are the
+; entire contract. Exporting the same four functions at different ordinals
+; produces a DLL that loads and then calls the wrong function for every request.
+;
+; 3 and 4 are held so the numbering matches the real driver's; they are not
+; imported by this title.
+LIBRARY iDmacDrv64
+EXPORTS
+    iDmacDrvOpen      @1
+    iDmacDrvClose     @2
+    iDmacDrvReserved3 @3
+    iDmacDrvReserved4 @4
+    iDmacDrvRead      @5
+    iDmacDrvWrite     @6

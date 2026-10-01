@@ -1,0 +1,8 @@
+/* hook_res.rc -- embeds this board's own hook DLL(s) into ultra_play_mechanix.dll
+ * as RCDATA, so exactly one file ships/gets signed for this board. Built by
+ * build_module.sh AFTER src/hook/build_pm_hook.sh produces the hook
+ * binaries. Extracted back out at runtime by extract_hook_to_temp() in
+ * play_mechanix_main.c. See docs/PROJECT_LICENSING_AND_SIGNING.md.
+ */
+HOOK32 RCDATA "hook/ultra_play_mechanix_hook32.dll"
+HOOK64 RCDATA "hook/ultra_play_mechanix_hook64.dll"

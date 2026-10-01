@@ -1,0 +1,11 @@
+/* hook_res.rc -- embeds this board's own hook DLL(s) and the DLL-game host EXE
+ * into ultra_konami_bemani.dll as RCDATA, so exactly one file ships/gets signed
+ * for this board. Built by build_module.sh AFTER build_bemani_hook.sh and the
+ * bemani_dll_host.exe build both complete (see that script).
+ * Extracted back out at runtime by extract_hook_to_temp() /
+ * extract_host_to_temp() in konami_bemani_main.c.
+ * See docs/PROJECT_LICENSING_AND_SIGNING.md.
+ */
+HOOK32    RCDATA "../ultra_konami_bemani_hook32.dll"
+HOOK64    RCDATA "../ultra_konami_bemani_hook64.dll"
+DLLHOST32 RCDATA "../bemani_dll_host.exe"
