@@ -39,16 +39,9 @@ Three steps. No per-game setup, no config spelunking, no launcher babysitting.
 
 ---
 
-## See It
+## Library Art Styles
 
 <div align="center">
-
-<img src="media/ui-main.png" alt="Ultra Loader settings" width="680">
-
-<i>One screen. Pick a game, hit Save &amp; Launch — the loader detects the board and wires up every service automatically.</i>
-
-<br><br>
-
 <table>
 <tr>
 <td align="center"><img src="media/style-clear.png" width="420"><br><b>Clear Style</b></td>
@@ -67,6 +60,16 @@ Three steps. No per-game setup, no config spelunking, no launcher babysitting.
 3. Run **`ultra-loader.exe`**.
 
 Everything the loader needs is embedded. On first run it writes its own `ultra.ini`, and it creates its `art\` folders automatically when you install art packs. **Game-art packs** and **per-game firmware** are distributed separately and install from inside the loader.
+
+---
+
+## One Screen, Everything
+
+<div align="center">
+<a href="media/ui-main.png"><img src="media/ui-main.png" alt="Ultra Loader settings" width="600"></a>
+<br>
+<i>Every setting in one place — display, upscaling, controllers, firmware, audio. Pick a game, hit <b>Save &amp; Launch</b>, and the loader detects the board and wires up every service automatically.<br>(Click to view full size.)</i>
+</div>
 
 ---
 
