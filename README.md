@@ -19,11 +19,11 @@
 
 ## What is Ultra Loader?
 
-Arcade games are some of the most technically impressive and culturally significant games ever made — and most of them have never been released in any form players can own. When the cabinets age out and the operators move on, those games are simply gone.
+Arcade games are some of the most technically impressive and culturally significant games ever made, and most of them have never been released in any form players can own. When the cabinets age out and the operators move on, those games are simply gone.
 
-**Ultra Loader is here to change that.** It is an original, clean-room arcade execution engine that runs your legal arcade game dumps natively on a Windows PC — no cabinet, no operator, no pay-to-play subscription gatekept behind someone else's wallet. One engine, one unified library, every supported board.
+**Ultra Loader is here to change that.** It is an original, clean-room arcade execution engine that runs your legal arcade game dumps natively on a Windows PC. No cabinet, no operator, no pay-to-play subscription gatekept behind someone else's wallet. One engine, one unified library, every supported board.
 
-> It contains **no** copyrighted game code, **no** extracted assets, and **no** third-party firmware. You bring your own game files. We built the engine — you decide how to use it.
+> It contains **no** copyrighted game code, **no** extracted assets, and **no** third-party firmware. You bring your own game files. We built the engine. You decide how to use it.
 
 <div align="center">
 <a href="media/ui-dual.png"><img src="media/ui-dual.png" alt="Ultra Loader settings and game library" width="100%"></a>
@@ -33,45 +33,49 @@ Arcade games are some of the most technically impressive and culturally signific
 
 ---
 
+## Why Use Ultra Loader?
+
+**One loader for everything.** Namco, Sega, Taito, Konami, Raw Thrills and more: dozens of modern arcade boards in a single app, with one UI, one library, and one set of services. No juggling a different tool for every system.
+
+**Fast, free, and it stays that way.** Native speed, no paywall, no gatekeeping, no telemetry. Every user gets the same full-powered software, forever.
+
+**It preserves what would otherwise be lost.** These games were built for hardware that ages out and operators who move on. Ultra Loader lets them live on PCs that anyone can own.
+
+### Bringing games up takes the whole community
+
+Here's the honest part. Getting an arcade board running *right* is hard, patient work: tracing protocols, hooking I/O, fixing one stubborn game at a time. It doesn't happen overnight, and it never happens through one person hoarding the keys.
+
+That's exactly why the modules are **open**. **Imagine 20 or 30 people pushing boards forward together** instead of waiting on a single gatekeeper. Share what you learn. Fix a game, open a pull request, help the next person up.
+
+So please, **be patient** with what's still in bring-up, and **support the people doing the work**. Report issues, test fixes, contribute what you can. Stop rewarding the selfish, pay-to-play model; build the open one, together. **This is the way.**
+
+---
+
 ## The ULTRA Way
 
 Three steps. No per-game setup, no config spelunking, no launcher babysitting.
 
-1. **Install** — Download the loader, extract the folder, run `ultra-loader.exe`.
-2. **Select** — Browse your legal game dumps and pick the game's executable (`.exe`).
-3. **Launch** — Press *Save and Launch*. Ultra Loader detects the board, loads the right module, and wires up omni-services — lightgun support, force feedback, wheels, flight sticks, card readers, credits — automatically. No further setup required.
+1. **Install.** Download the loader, extract the folder, run `ultra-loader.exe`.
+2. **Select.** Browse your legal game dumps and pick the game's executable (`.exe`).
+3. **Launch.** Press *Save and Launch*. Ultra Loader detects the board, loads the right module, and wires up omni-services (lightgun support, force feedback, wheels, flight sticks, card readers, credits) automatically. No further setup required.
 
 ---
 
 ## Built for Speed
 
-Ultra Loader is written in **native C** and ships as a single lightweight executable with its UI, fonts, audio, splash and boot animation **embedded**. There's no managed runtime to spin up, no framework to load, and no per-game project files to parse before anything happens — the window and your entire game library are on screen the instant you double-click it.
+Ultra Loader is written in **native C** and ships as a single lightweight executable with its UI, fonts, audio, splash and boot animation **embedded**. There's no managed runtime to spin up, no framework to load, and no per-game project files to parse before anything happens. The window and your entire game library are on screen the instant you double-click it.
 
 That's a different class of responsiveness than managed, .NET-based launchers like **TeknoParrot**:
 
 | | **Ultra Loader** | **TeknoParrot** |
 |---|---|---|
 | Core | Native C, single small `.exe` | Managed .NET / WPF launcher |
-| Cold start | Near-instant — library shows immediately | Waits on the .NET runtime + UI framework to load |
+| Cold start | Near-instant: library shows immediately | Waits on the .NET runtime and UI framework to load |
 | Launch path | Straight into a native injector/host | Through a managed launcher layer |
 | Library | One unified grid that remembers **every** game you've ever launched | Per-game profiles you add and manage |
-| Footprint | Lean; assets embedded in the exe | Framework + launcher dependencies |
+| Footprint | Lean; assets embedded in the exe | Framework and launcher dependencies |
 
 The result: you spend time **playing**, not waiting on a launcher. Pick a game, press **Save & Launch**, and you're in.
-
----
-
-## Library Art Styles
-
-<div align="center">
-<table>
-<tr>
-<td align="center"><img src="media/style-clear.png" width="420"><br><b>Clear Style</b></td>
-<td align="center"><img src="media/style-silver.png" width="420"><br><b>Silver Ring</b></td>
-</tr>
-</table>
-<i>Two built-in logo-art styles for your library. Art packs install from inside the loader.</i>
-</div>
 
 ---
 
@@ -90,7 +94,7 @@ Everything the loader needs is embedded. On first run it writes its own `ultra.i
 <div align="center">
 <a href="media/ui-main.png"><img src="media/ui-main.png" alt="Ultra Loader settings" width="600"></a>
 <br>
-<i>Every setting in one place — display, upscaling, controllers, firmware, audio. Pick a game, hit <b>Save &amp; Launch</b>, and the loader detects the board and wires up every service automatically.<br>(Click to view full size.)</i>
+<i>Every setting in one place: display, upscaling, controllers, firmware, audio. Pick a game, hit <b>Save &amp; Launch</b>, and the loader detects the board and wires up every service automatically.<br>(Click to view full size.)</i>
 </div>
 
 ---
@@ -103,9 +107,23 @@ Everything the loader needs is embedded. On first run it writes its own `ultra.i
 <i>Your whole collection as a wall of art. (Click to view full size.)</i>
 </div>
 
-A single, art-driven grid of your games — each tile its own logo. The library is a **persistent, cross-folder history**: every game you launch is remembered and stays on the wall, no matter which folder it lives in. No re-adding, no per-game setup.
+A single, art-driven grid of your games, each tile its own logo. The library is a **persistent, cross-folder history**: every game you launch is remembered and stays on the wall, no matter which folder it lives in. No re-adding, no per-game setup.
 
-Curate it your way — tick the checkbox on any tile and hit **Delete Selected** to remove entries you don't want shown. (It only hides them from the grid; your game files are never touched.)
+Curate it your way: tick the checkbox on any tile and hit **Delete Selected** to remove entries you don't want shown. (It only hides them from the grid; your game files are never touched.)
+
+---
+
+## Library Art Styles
+
+<div align="center">
+<table>
+<tr>
+<td align="center"><img src="media/style-clear.png" width="420"><br><b>Clear Style</b></td>
+<td align="center"><img src="media/style-silver.png" width="420"><br><b>Silver Ring</b></td>
+</tr>
+</table>
+<i>Two built-in logo-art styles for your library. Art packs install from inside the loader.</i>
+</div>
 
 ---
 
@@ -131,7 +149,7 @@ The open-source board modules in this repository (`modules/`) cover **43 modern 
 | **UNICO / UNIS / Wahlap** | UNICO PC, UNIS, Wahlap WPC |
 | **Generic** | Generic PC |
 
-Each board lives in `modules/<board>/` as original source — hook code, board I/O, profiles, and compatibility logic.
+Each board lives in `modules/<board>/` as original source: hook code, board I/O, profiles, and compatibility logic.
 
 ---
 
@@ -144,7 +162,7 @@ Each board lives in `modules/<board>/` as original source — hook code, board I
 | **Per-game firmware (`.ufw`)** | Installed from inside the loader |
 | **Game-art packs** | Installed from inside the loader |
 
-The loader itself is proprietary and free (see the [EULA](https://ultraloader.org/eula)). The **board modules are open** — made to be read, improved, and extended by the community.
+The loader itself is proprietary and free (see the [EULA](https://ultraloader.org/eula)). The **board modules are open**, made to be read, improved, and extended by the community.
 
 ---
 
@@ -156,8 +174,6 @@ These are promises, in writing, where anyone can find them:
 - **No game access is ever paywalled.** Every user gets the same software with the same capabilities.
 - **No telemetry.** Nothing leaves your machine unless you choose to send a bug report.
 - **All R&D goes back to the community** at no cost.
-
-Imagine 20 or 30 people pushing boards forward together instead of one gatekeeper hoarding the keys. That is how we win. Stop rewarding bad behavior. Bring your work back. **This is the way.**
 
 ---
 
@@ -175,7 +191,7 @@ Open an issue or a pull request. Every improvement is returned to everyone.
 
 ## License
 
-The open components (board modules and firmware modules) are released under the **[Ultra Loader Community License](LICENSE)** — free, open, non-commercial, share-alike. The Loader binary is proprietary and free under the **[EULA](https://ultraloader.org/eula)**.
+The open components (board modules and firmware modules) are released under the **[Ultra Loader Community License](LICENSE)**: free, open, non-commercial, share-alike. The Loader binary is proprietary and free under the **[EULA](https://ultraloader.org/eula)**.
 
 <div align="center">
 
