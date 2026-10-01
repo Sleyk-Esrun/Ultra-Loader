@@ -138,6 +138,8 @@ Curate it your way: tick the checkbox on any tile and hit **Delete Selected** to
 
 ## Library Art Styles
 
+Pick the look that fits your collection. Ultra Loader ships with two built-in logo-art styles, and you choose the one you like.
+
 <div align="center">
 <table>
 <tr>
@@ -145,8 +147,13 @@ Curate it your way: tick the checkbox on any tile and hit **Delete Selected** to
 <td align="center"><img src="media/style-silver.png" width="420"><br><b>Silver Ring</b></td>
 </tr>
 </table>
-<i>Two built-in logo-art styles for your library. Art packs install from inside the loader.</i>
 </div>
+
+**Clear Style** is the clean, transparent logo look that has long been the community standard: crisp, minimal, and it sits naturally on any background.
+
+**Silver Ring** is the metallic, ringed-badge style that TeknoParrot made popular. Over the years it has become almost synonymous with modern arcade game art in the community, so it felt only fair to include it.
+
+Prefer one or the other, and install your own art packs from inside the loader anytime.
 
 ---
 
