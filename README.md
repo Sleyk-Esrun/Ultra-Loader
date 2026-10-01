@@ -143,8 +143,8 @@ Pick the look that fits your collection. Ultra Loader ships with two built-in lo
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="media/style-clear.png" width="540"><br><b>Clear Style</b></td>
-<td align="center"><img src="media/style-silver.png" width="405"><br><b>Silver Ring</b></td>
+<td align="center" width="50%"><img src="media/style-clear.png" width="440"><br><b>Clear Style</b></td>
+<td align="center" width="50%"><img src="media/style-silver.png" width="440"><br><b>Silver Ring</b></td>
 </tr>
 </table>
 </div>
