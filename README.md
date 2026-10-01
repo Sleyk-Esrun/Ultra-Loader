@@ -53,11 +53,12 @@ So please, **be patient** with what's still in bring-up, and **support the peopl
 
 ## The ULTRA Way
 
-Three steps. No per-game setup, no config spelunking, no launcher babysitting.
+Four steps. No per-game setup, no config spelunking, no launcher babysitting.
 
 1. **Install.** Download the loader, extract the folder, run `ultra-loader.exe`.
-2. **Select.** Browse your legal game dumps and pick the game's executable (`.exe`).
-3. **Launch.** Press *Save and Launch*. Ultra Loader detects the board, loads the right module, and wires up omni-services (lightgun support, force feedback, wheels, flight sticks, card readers, credits) automatically. No further setup required.
+2. **Install Modules.** Choose a game module you wish to play and install it directly into the loader. The loader plays a sound to let you know it installed.
+3. **Select.** Browse your legal game dumps and pick the game's executable (`.exe`).
+4. **Launch.** Press *Save and Launch*. Ultra Loader detects the board, loads the right module, and wires up omni-services (lightgun support, force feedback, wheels, flight sticks, card readers, credits) automatically. No further setup required.
 
 ---
 
