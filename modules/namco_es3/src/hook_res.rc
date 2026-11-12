@@ -1,9 +1,0 @@
-/* hook_res.rc -- embeds this board's own hook DLL(s) into ultra_namco_es3.dll
- * as RCDATA, so exactly one file ships/gets signed for this board. Built by
- * build_module.sh AFTER the hook build step produces the hook binaries
- * (which land at the board root, not src/hook/ -- see that script).
- * Extracted back out at runtime by find_hook() in namco_es3_main.c. See
- * docs/PROJECT_LICENSING_AND_SIGNING.md.
- */
-HOOK32 RCDATA "../ultra_namco_es3_hook32.dll"
-HOOK64 RCDATA "../ultra_namco_es3_hook64.dll"

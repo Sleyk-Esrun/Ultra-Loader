@@ -1,9 +1,0 @@
-/* hook_res.rc -- embeds this board's own hook DLL into ultra_cave_pc.dll
- * as RCDATA, so exactly one file ships/gets signed for this board. Built by
- * build_module.sh AFTER src/hook/build_cave_hook.sh produces the hook
- * binary. Extracted back out at runtime by find_hook() in cave_pc_main.c.
- * See docs/PROJECT_LICENSING_AND_SIGNING.md.
- *
- * 32-bit only -- Cave PC's mainline catalog is 32-bit.
- */
-HOOK32 RCDATA "hook/ultra_cave_pc_hook32.dll"

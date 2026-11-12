@@ -1,8 +1,0 @@
-/* hook_res.rc -- embeds this board's own hook DLL(s) into ultra_taito_typex4.dll
- * as RCDATA, so exactly one file ships/gets signed for this board. Built by
- * build_module.sh AFTER src/hook/build_typex4_hook.sh produces the hook
- * binaries. Extracted back out at runtime by find_hook() in
- * taito_typex4_main.c. See docs/PROJECT_LICENSING_AND_SIGNING.md.
- */
-HOOK32 RCDATA "hook/ultra_taito_typex4_hook32.dll"
-HOOK64 RCDATA "hook/ultra_taito_typex4_hook64.dll"

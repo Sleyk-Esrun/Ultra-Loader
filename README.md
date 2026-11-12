@@ -159,7 +159,7 @@ You can choose between one or the other, and install your own art packs from ins
 
 ## Supported System Boards
 
-The open-source board modules in this repository (`modules/`) cover **43 modern arcade system boards**:
+Ultra Loader's board modules cover **43 modern arcade system boards**:
 
 | Manufacturer | Boards |
 |---|---|
@@ -179,7 +179,7 @@ The open-source board modules in this repository (`modules/`) cover **43 modern 
 | **UNICO / UNIS / Wahlap** | UNICO PC, UNIS, Wahlap WPC |
 | **Generic** | Generic PC |
 
-Each board lives in `modules/<board>/` as original source: hook code, board I/O, profiles, and compatibility logic.
+Each board module is original work: hook code, board I/O, profiles, and compatibility logic. The outdated v1.0.0 module source has been retired from this repository; the reworked v2 module source will be published here when it is ready.
 
 ---
 
@@ -187,7 +187,7 @@ Each board lives in `modules/<board>/` as original source: hook code, board I/O,
 
 | What | Where |
 |---|---|
-| **Open-source board module source** | `modules/` (this repo) |
+| **Open-source board module source** | Returns with v2 (the outdated v1.0.0 source is retired) |
 | **Windows loader (binary)** | [Releases](https://github.com/Sleyk-Esrun/Ultra-Loader/releases) |
 | **Per-game firmware (`.ufw`)** | Installed from inside the loader |
 | **Game-art packs** | Installed from inside the loader |
@@ -215,7 +215,7 @@ The board modules are open so the community can make them better.
 - Keep it **clean-room**: original work only. No copyrighted game code, no extracted assets, no third-party firmware, and no code or references from any competing loader or tool.
 - By contributing, you license your work under the [Ultra Loader Community License](LICENSE).
 
-Open an issue or a pull request. Every improvement is returned to everyone.
+Until the v2 module source is published, issues and bug reports are the way to help. Every improvement is returned to everyone.
 
 ---
 

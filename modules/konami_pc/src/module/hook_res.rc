@@ -1,9 +1,0 @@
-/* hook_res.rc -- embeds native_x86's own clean-room I/O hook (JVS + dongle
- * bypass) into ultra_native_x86.dll as RCDATA, so exactly one file ships/
- * gets signed for this board. Built by build_module.sh AFTER
- * ../hook/build_hook.sh produces the hook binaries. Extracted back out at
- * runtime by extract_hook_to_temp() in native_x86_module.cpp. See
- * docs/PROJECT_LICENSING_AND_SIGNING.md.
- */
-HOOK32 RCDATA "../hook/ultra_typex_hook32.dll"
-HOOK64 RCDATA "../hook/ultra_typex_hook64.dll"
