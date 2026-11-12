@@ -88,7 +88,7 @@ Ultra Loader is written in **native C** and ships as a single lightweight execut
 
 The loader was built to be responsive and fast. That's a completely different class of responsiveness than a managed .NET-based launcher like **TeknoParrot**:
 
-| | **Ultra Loader** | **TeknoParrot** |
+| | **Ultra Loader** | **Other Launchers (Teknoparrot, etc)** |
 |---|---|---|
 | Core | Native C, single small `.exe` | Managed .NET / WPF launcher |
 | Cold start | Near-instant: library shows immediately | Waits on the .NET runtime and UI framework to load |
